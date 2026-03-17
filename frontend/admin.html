@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Dashboard</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body class="dashboard-page">
+
+<div class="dashboard-shell admin-layout">
+	<aside class="sidebar glass-panel">
+		<div class="sidebar-top">
+			<div>
+				<div class="brand-badge">Admin Hub</div>
+				<h1 class="sidebar-title">Document Control Center</h1>
+			</div>
+			<button class="ghost-btn small" type="button" onclick="window.location='search.html'">Assistant</button>
+		</div>
+
+		<div class="sidebar-section">
+			<div class="section-heading-row">
+				<h3>Uploaded Documents</h3>
+				<span class="pill" id="adminDocumentsCount">0</span>
+			</div>
+			<div id="adminSidebarDocuments" class="stack-list"></div>
+		</div>
+
+		<div class="sidebar-section">
+			<div class="section-heading-row">
+				<h3>Recent History</h3>
+				<span class="pill" id="adminHistoryCount">0</span>
+			</div>
+			<div id="adminHistoryList" class="stack-list"></div>
+		</div>
+
+		<div class="sidebar-section">
+			<div class="section-heading-row">
+				<h3>Most Searched Docs</h3>
+				<span class="pill accent">Insights</span>
+			</div>
+			<div id="adminTopDocsList" class="stack-list"></div>
+		</div>
+	</aside>
+
+	<main class="workspace-main">
+		<header class="topbar glass-panel">
+			<div>
+				<p class="eyebrow">Admin dashboard</p>
+				<h2>Manage documents, users, and analytics</h2>
+			</div>
+
+			<div class="topbar-actions">
+				<button class="ghost-btn" id="adminLogoutButton" type="button">Logout</button>
+				<button class="profile-button" id="adminProfileButton" type="button">
+					<span class="profile-avatar" id="adminProfileAvatar">A</span>
+					<span>
+						<strong id="adminProfileName">Admin</strong>
+						<small id="adminProfileRole">Administrator</small>
+					</span>
+				</button>
+			</div>
+		</header>
+
+		<section class="hero-banner glass-panel compact-hero">
+			<div>
+				<p class="eyebrow">Operations overview</p>
+				<h3>Keep the knowledge base current and measurable.</h3>
+				<p class="hero-copy">
+					Upload new files, review usage trends, track active users, and manage the document set
+					without changing the backend.
+				</p>
+			</div>
+
+			<div class="hero-stats stats-grid-4" id="statsCards">
+				<div class="stat-card">
+					<span class="stat-label">Documents</span>
+					<strong id="statDocuments">0</strong>
+				</div>
+				<div class="stat-card">
+					<span class="stat-label">Chunks</span>
+					<strong id="statChunks">0</strong>
+				</div>
+				<div class="stat-card">
+					<span class="stat-label">Users</span>
+					<strong id="statUsers">0</strong>
+				</div>
+				<div class="stat-card">
+					<span class="stat-label">Queries</span>
+					<strong id="statQueries">0</strong>
+				</div>
+			</div>
+		</section>
+
+		<section class="admin-grid">
+			<article class="glass-panel card-section upload-card">
+				<div class="section-heading-row">
+					<div>
+						<p class="eyebrow">Upload</p>
+						<h3>Add a new document</h3>
+					</div>
+				</div>
+
+				<div class="upload-box">
+					<input type="file" id="fileInput">
+					<button class="primary-btn" onclick="uploadFile()">Upload Document</button>
+				</div>
+				<p id="uploadStatus" class="muted-text">PDF and DOCX files are supported.</p>
+			</article>
+
+			<article class="glass-panel card-section">
+				<div class="section-heading-row">
+					<div>
+						<p class="eyebrow">Documents</p>
+						<h3>Uploaded files</h3>
+					</div>
+					<button class="ghost-btn small" onclick="loadDocuments()">Refresh</button>
+				</div>
+				<div id="documents" class="table-list"></div>
+			</article>
+
+			<article class="glass-panel card-section">
+				<div class="section-heading-row">
+					<div>
+						<p class="eyebrow">Analytics</p>
+						<h3>Usage insights</h3>
+					</div>
+					<button class="ghost-btn small" onclick="loadAnalytics()">Refresh</button>
+				</div>
+				<div id="analytics" class="analytics-panel"></div>
+			</article>
+
+			<article class="glass-panel card-section">
+				<div class="section-heading-row">
+					<div>
+						<p class="eyebrow">Users</p>
+						<h3>Workspace members</h3>
+					</div>
+					<button class="ghost-btn small" onclick="loadUsers()">Refresh</button>
+				</div>
+				<div id="usersPanel" class="table-list"></div>
+			</article>
+		</section>
+	</main>
+</div>
+
+<div id="adminProfileOverlay" class="drawer-overlay"></div>
+<aside id="adminProfileDrawer" class="profile-drawer glass-panel">
+	<div class="drawer-header">
+		<div>
+			<p class="eyebrow">Administrator</p>
+			<h3>Profile and controls</h3>
+		</div>
+		<button class="ghost-btn small" id="closeAdminProfile" type="button">Close</button>
+	</div>
+
+	<div id="adminProfileDetails" class="profile-content"></div>
+</aside>
+
+<script src="js/api.js"></script>
+
+</body>
+
+</html>

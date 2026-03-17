@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Document Assistant</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body class="auth-page">
+
+<div class="auth-shell">
+	<section class="auth-hero glass-panel">
+		<div class="brand-badge">Intelligent Document Search</div>
+		<h1>Search enterprise knowledge with a modern AI workspace.</h1>
+		<p>
+			A faster document assistant for teams that need instant answers,
+			contextual discovery, and role-aware access in one place.
+		</p>
+
+		<div class="hero-metrics">
+			<div class="metric-card">
+				<span class="metric-value">24/7</span>
+				<span class="metric-label">Search availability</span>
+			</div>
+			<div class="metric-card">
+				<span class="metric-value">Role-based</span>
+				<span class="metric-label">User and admin views</span>
+			</div>
+			<div class="metric-card">
+				<span class="metric-value">AI Ready</span>
+				<span class="metric-label">RAG-powered answers</span>
+			</div>
+		</div>
+	</section>
+
+	<section class="login-container glass-panel">
+		<div class="section-heading compact">
+			<span class="eyebrow">Welcome back</span>
+			<h2>Sign in to your workspace</h2>
+			<p>Use your company credentials to continue.</p>
+		</div>
+
+		<div class="form-stack">
+			<label class="input-label" for="username">Username</label>
+			<input id="username" placeholder="Enter username" autocomplete="username">
+
+			<label class="input-label" for="password">Password</label>
+			<input id="password" type="password" placeholder="Enter password" autocomplete="current-password">
+
+			<button class="primary-btn" onclick="login()">Enter Workspace</button>
+		</div>
+
+		<div class="auth-footer">
+			<span class="status-dot"></span>
+			<span>Secure session enabled</span>
+		</div>
+
+		<p id="error" class="error-text"></p>
+	</section>
+</div>
+
+<script src="js/auth.js"></script>
+
+</body>
+</html>

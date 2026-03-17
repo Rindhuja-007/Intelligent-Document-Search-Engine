@@ -1,0 +1,16 @@
+streamlit
+nltk
+scikit-learn
+PyPDF2
+python-docx
+spacy
+fastapi
+uvicorn
+sentence-transformers
+sqlite3
+passlib==1.7.4
+bcrypt==4.0.1
+python-jose
+python-multipart
+numpy
+pydantic
