@@ -3,6 +3,7 @@ nltk
 scikit-learn
 PyPDF2
 python-docx
+pdfplumber
 spacy
 fastapi
 uvicorn
