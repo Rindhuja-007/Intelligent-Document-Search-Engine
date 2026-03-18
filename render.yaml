@@ -26,7 +26,7 @@ services:
         mountPath: /var/data
         sizeGB: 1
 
-  - type: static
+  - type: static_site
     name: ai-doc-assistant-web
     rootDir: frontend
     buildCommand: ""
