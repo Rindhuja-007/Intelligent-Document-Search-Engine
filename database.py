@@ -1,8 +1,9 @@
 import sqlite3
 import numpy as np
 import pickle
+import os
 
-DB_NAME = "documents.db"
+DB_NAME = os.getenv("DB_NAME", "documents.db")
 
 
 def get_connection():

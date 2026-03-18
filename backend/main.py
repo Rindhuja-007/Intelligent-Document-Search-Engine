@@ -24,9 +24,35 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
+DB_PATH = os.getenv("DB_NAME", "documents.db")
+DATA_DIR = os.getenv("DATA_DIR", "data")
+
+frontend_url = os.getenv("FRONTEND_URL")
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+
+allowed_origins = [
+    origin.strip()
+    for origin in allowed_origins_env.split(",")
+    if origin.strip()
+]
+
+if frontend_url:
+    allowed_origins.append(frontend_url)
+
+# Local dev fallback
+if not allowed_origins:
+    allowed_origins = [
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://127.0.0.1:3000",
+        "http://localhost:3000",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # allow frontend
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,6 +60,35 @@ app.add_middleware(
 
 security = HTTPBearer()
 create_tables()
+
+
+def ensure_admin_user():
+    admin_username = os.getenv("ADMIN_USERNAME")
+    admin_password = os.getenv("ADMIN_PASSWORD")
+
+    if not admin_username or not admin_password:
+        return
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        "SELECT id FROM users WHERE username=?",
+        (admin_username,)
+    )
+    existing = cursor.fetchone()
+
+    if not existing:
+        cursor.execute(
+            "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+            (admin_username, hash_password(admin_password), "admin")
+        )
+        conn.commit()
+
+    conn.close()
+
+
+ensure_admin_user()
 
 
 # -----------------------------
@@ -50,8 +105,7 @@ def load_resources():
     if model is None:
         print("Loading model...")
         model = SentenceTransformer(
-            "sentence-transformers/all-MiniLM-L6-v2",
-            local_files_only=True
+            os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
         )
         print("Model loaded.")
 
@@ -101,7 +155,7 @@ def root():
 @app.post("/register")
 def register(user: User):
 
-    conn = sqlite3.connect("documents.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     hashed = hash_password(user.password)
@@ -131,7 +185,7 @@ def register(user: User):
 @app.post("/login")
 def login(user: User):
 
-    conn = sqlite3.connect("documents.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute(
@@ -221,9 +275,10 @@ def upload_document(
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
 
-    os.makedirs("data/uploads", exist_ok=True)
+    upload_dir = os.path.join(DATA_DIR, "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
 
-    file_path = os.path.join("data/uploads", file.filename)
+    file_path = os.path.join(upload_dir, file.filename)
 
     # 1️⃣ Save file
     with open(file_path, "wb") as f:
@@ -237,7 +292,7 @@ def upload_document(
         )
 
     
-    conn = sqlite3.connect("documents.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute(
@@ -279,7 +334,7 @@ def list_users(user = Depends(get_current_user)):
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
 
-    conn = sqlite3.connect("documents.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute("SELECT id, username, role FROM users")
@@ -296,7 +351,7 @@ def list_documents(user = Depends(get_current_user)):
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
 
-    conn = sqlite3.connect("documents.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     cursor.execute("""
@@ -325,7 +380,7 @@ def delete_document(doc_id: int, user = Depends(get_current_user)):
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
 
-    conn = sqlite3.connect("documents.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # get filename
@@ -364,7 +419,7 @@ def admin_stats(user = Depends(get_current_user)):
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
 
-    conn = sqlite3.connect("documents.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # documents
@@ -398,7 +453,7 @@ def admin_analytics(user = Depends(get_current_user)):
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
 
-    conn = sqlite3.connect("documents.db")
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # total queries

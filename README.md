@@ -104,6 +104,44 @@ streamlit run app.py
 
 The application will open in your browser at `http://localhost:8501`
 
+## Deploy on Render
+
+This repo includes [render.yaml](render.yaml) so you can deploy both API and frontend using a Blueprint.
+
+### 1) Push code to GitHub
+- Commit your latest code
+- Push to a GitHub repository
+
+### 2) Create Blueprint on Render
+- In Render dashboard: **New +** → **Blueprint**
+- Select your GitHub repo
+- Render reads [render.yaml](render.yaml) and creates:
+    - `ai-doc-assistant-api` (FastAPI web service)
+    - `ai-doc-assistant-web` (static frontend)
+
+### 3) Set required environment values
+In API service environment:
+- `ADMIN_USERNAME` = your admin username
+- `ADMIN_PASSWORD` = your admin password
+
+Other variables are preconfigured in [render.yaml](render.yaml):
+- `DB_NAME=/var/data/documents.db`
+- `DATA_DIR=/var/data`
+- `JWT_SECRET_KEY` (auto-generated)
+
+### 4) Deploy
+- Click **Apply** in Blueprint setup
+- Wait for both services to finish deploying
+
+### 5) Verify
+- Open API URL and check root endpoint returns:
+    - `{"message": "AI Document Search API running"}`
+- Open frontend URL, login with admin credentials from step 3
+
+### Notes
+- Persistent disk is configured at `/var/data` for SQLite + uploads.
+- First request that uses embeddings may be slower while model files are downloaded.
+
 ### How to Use
 
 1. **Upload Documents**

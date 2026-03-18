@@ -1,9 +1,10 @@
 from passlib.context import CryptContext
 from jose import jwt,JWTError
 from datetime import datetime, timedelta, timezone
+import os
 
 
-SECRET_KEY = "supersecretkey"
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "supersecretkey")
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

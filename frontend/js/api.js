@@ -1,4 +1,8 @@
-const API_URL = "https://ai-doc-assistant-api.onrender.com"
+const API_URL = (
+window.API_URL ||
+localStorage.getItem("API_URL") ||
+"https://ai-doc-assistant-api.onrender.com"
+).replace(/\/$/, "")
 
 const token = localStorage.getItem("token")
 
