@@ -12,19 +12,15 @@ services:
       - key: JWT_SECRET_KEY
         generateValue: true
       - key: DB_NAME
-        value: /var/data/documents.db
+        value: /tmp/documents.db
       - key: DATA_DIR
-        value: /var/data
+        value: /tmp
       - key: FRONTEND_URL
         value: https://ai-doc-assistant-web.onrender.com
       - key: ADMIN_USERNAME
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-    disk:
-      name: ai-doc-assistant-disk
-      mountPath: /var/data
-      sizeGB: 1
 
   - type: web
     name: ai-doc-assistant-web
