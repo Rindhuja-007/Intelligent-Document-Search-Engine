@@ -39,21 +39,26 @@ create_tables()
 # -----------------------------
 # Load embedding model
 # -----------------------------
-print("Loading embedding model...")
-
-model = SentenceTransformer(
-    "sentence-transformers/all-MiniLM-L6-v2",
-    local_files_only=True
-)
-
-print("Model loaded.")
+model = None
+chunks = None
+embeddings = None
 
 
-# -----------------------------
-# Load document index
-# -----------------------------
-chunks, embeddings = fetch_all_chunks()
+def load_resources():
+    global model, chunks, embeddings
 
+    if model is None:
+        print("Loading model...")
+        model = SentenceTransformer(
+            "sentence-transformers/all-MiniLM-L6-v2",
+            local_files_only=True
+        )
+        print("Model loaded.")
+
+    if chunks is None or embeddings is None:
+        print("Loading DB...")
+        chunks, embeddings = fetch_all_chunks()
+        print("DB loaded.")
 
 # -----------------------------
 # Authentication Dependency
@@ -168,6 +173,7 @@ def login(user: User):
 # -----------------------------
 @app.post("/query")
 def query_docs(data: Query, user=Depends(get_current_user)):
+    load_resources()
 
     try:
 

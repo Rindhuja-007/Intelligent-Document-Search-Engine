@@ -6,10 +6,12 @@ python-docx
 spacy
 fastapi
 uvicorn
-sentence-transformers
+sentence-transformers==2.2.2
+torch==2.0.1+cpu
 passlib==1.7.4
 bcrypt==4.0.1
 python-jose
 python-multipart
 numpy
 pydantic
+--extra-index-url https://download.pytorch.org/whl/cpu
