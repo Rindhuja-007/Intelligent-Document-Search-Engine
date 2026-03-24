@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel
 import sqlite3
+import pickle
 from sentence_transformers import SentenceTransformer
 from backend.auth import (
     hash_password,
@@ -10,8 +11,7 @@ from backend.auth import (
     decode_token
 )
 
-from database import fetch_all_chunks, create_tables,insert_chunk, document_exists, insert_query
-from database import insert_chunks_bulk
+from database import fetch_all_chunks, create_tables, document_exists, insert_query
 from search_engine import retrieve_top_chunks_with_scores
 from rag_engine import build_extractive_answer
 import os
@@ -289,61 +289,109 @@ def upload_document(
             detail="Document already uploaded"
         )
 
-    # 3️⃣ Extract chunks
-    if file.filename.endswith(".pdf"):
-        doc_chunks = extract_pdf_chunks(file_path)
-    elif file.filename.endswith(".docx"):
-        doc_chunks = extract_docx_chunks(file_path)
-    else:
-        raise HTTPException(status_code=400, detail="Unsupported file")
-
-    # 4️⃣ Preprocess
-    for c in doc_chunks:
-        c["clean_text"] = preprocess_text(c["content"])
-
-    max_chunks_per_upload = int(os.getenv("MAX_CHUNKS_PER_UPLOAD", "150"))
-    if len(doc_chunks) > max_chunks_per_upload:
-        raise HTTPException(
-            status_code=413,
-            detail=(
-                f"Document too large for current plan. "
-                f"Max chunks per upload: {max_chunks_per_upload}. "
-                f"Current chunks: {len(doc_chunks)}"
-            )
-        )
-
-    # 5️⃣ Create embeddings
-    doc_embeddings, _ = embed_chunks(doc_chunks, model=model)
-
-    # 6️⃣ Store metadata + chunks
     conn = sqlite3.connect(DB_PATH, timeout=30)
+    conn.execute("PRAGMA journal_mode=WAL;")
     conn.execute("PRAGMA busy_timeout=30000;")
     cursor = conn.cursor()
 
     try:
+        # 3️⃣ Extract chunks
+        if file.filename.endswith(".pdf"):
+            doc_chunks = extract_pdf_chunks(file_path)
+        elif file.filename.endswith(".docx"):
+            doc_chunks = extract_docx_chunks(file_path)
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported file")
+
+        # 4️⃣ Preprocess
+        for c in doc_chunks:
+            c["clean_text"] = preprocess_text(c["content"])
+
+        max_chunks_per_upload = int(os.getenv("MAX_CHUNKS_PER_UPLOAD", "150"))
+        if len(doc_chunks) > max_chunks_per_upload:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"Document too large for current plan. "
+                    f"Max chunks per upload: {max_chunks_per_upload}. "
+                    f"Current chunks: {len(doc_chunks)}"
+                )
+            )
+
+        # 5️⃣ Save document metadata
         cursor.execute(
             "INSERT INTO documents (filename, uploaded_by) VALUES (?, ?)",
             (file.filename, user["username"])
         )
         conn.commit()
+
+        # 6️⃣ Create embeddings and insert in small batches
+        embed_batch_size = int(os.getenv("EMBED_BATCH_SIZE", "4"))
+        total_indexed = 0
+
+        for start in range(0, len(doc_chunks), embed_batch_size):
+            batch = doc_chunks[start:start + embed_batch_size]
+            texts = [c["clean_text"] for c in batch]
+
+            batch_embeddings = model.encode(
+                texts,
+                batch_size=embed_batch_size,
+                show_progress_bar=False,
+                convert_to_numpy=True,
+            )
+
+            rows = [
+                (
+                    c["filename"],
+                    c["page"],
+                    c["chunk_id"],
+                    c["content"],
+                    pickle.dumps(e),
+                )
+                for c, e in zip(batch, batch_embeddings)
+            ]
+
+            cursor.executemany(
+                """
+                INSERT INTO document_chunks
+                (filename, page, chunk_id, content, embedding)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                rows,
+            )
+            conn.commit()
+            total_indexed += len(batch)
+
+        return {
+            "message": "Document uploaded and indexed",
+            "chunks_indexed": total_indexed
+        }
+
+    except HTTPException:
+        cursor.execute("DELETE FROM document_chunks WHERE filename=?", (file.filename,))
+        cursor.execute("DELETE FROM documents WHERE filename=?", (file.filename,))
+        conn.commit()
+        raise
     except sqlite3.IntegrityError:
-        conn.close()
+        conn.rollback()
+        cursor.execute("DELETE FROM document_chunks WHERE filename=?", (file.filename,))
+        cursor.execute("DELETE FROM documents WHERE filename=?", (file.filename,))
+        conn.commit()
         raise HTTPException(status_code=400, detail="Document already uploaded")
     except sqlite3.OperationalError:
+        conn.rollback()
+        cursor.execute("DELETE FROM document_chunks WHERE filename=?", (file.filename,))
+        cursor.execute("DELETE FROM documents WHERE filename=?", (file.filename,))
+        conn.commit()
+        raise HTTPException(status_code=503, detail="Database busy. Please retry.")
+    except Exception:
+        conn.rollback()
+        cursor.execute("DELETE FROM document_chunks WHERE filename=?", (file.filename,))
+        cursor.execute("DELETE FROM documents WHERE filename=?", (file.filename,))
+        conn.commit()
+        raise HTTPException(status_code=500, detail="Upload failed. Please retry.")
+    finally:
         conn.close()
-        raise HTTPException(status_code=503, detail="Database busy. Please retry.")
-
-    conn.close()
-
-    try:
-        insert_chunks_bulk(doc_chunks, doc_embeddings)
-    except sqlite3.OperationalError:
-        raise HTTPException(status_code=503, detail="Database busy. Please retry.")
-
-    return {
-        "message": "Document uploaded and indexed",
-        "chunks_indexed": len(doc_chunks)
-    }
 
 @app.get("/admin/users")
 def list_users(user = Depends(get_current_user)):
