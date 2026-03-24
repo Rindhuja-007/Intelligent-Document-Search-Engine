@@ -159,9 +159,12 @@ def build_extractive_answer(
 
         answer_points.append(f"{count}. {highlighted}")
 
+        page_value = chunk.get("page")
+        safe_page = int(page_value) if page_value is not None else 1
+
         source_info.append({
             "filename": chunk["filename"],
-            "page": int(chunk["page"]),
+            "page": safe_page,
             "score": float(round(score * 100, 1))
         })
 

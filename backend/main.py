@@ -270,10 +270,13 @@ def upload_document(
     file: UploadFile = File(...),
     user = Depends(get_current_user)
 ):
+    global chunks, embeddings
 
     # Only admin can upload
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
+
+    load_resources()
 
     upload_dir = os.path.join(DATA_DIR, "uploads")
     os.makedirs(upload_dir, exist_ok=True)
@@ -317,11 +320,14 @@ def upload_document(
         c["clean_text"] = preprocess_text(c["content"])
 
     # 5️⃣ Create embeddings
-    embeddings, _ = embed_chunks(doc_chunks)
+    doc_embeddings, _ = embed_chunks(doc_chunks, model=model)
 
     # 6️⃣ Store chunks
-    for c, e in zip(doc_chunks, embeddings):
+    for c, e in zip(doc_chunks, doc_embeddings):
         insert_chunk(c, e)
+
+    # Refresh in-memory cache so new docs are queryable immediately
+    chunks, embeddings = fetch_all_chunks()
 
     return {
         "message": "Document uploaded and indexed",
