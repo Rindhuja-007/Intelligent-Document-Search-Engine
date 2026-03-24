@@ -7,7 +7,10 @@ DB_NAME = os.getenv("DB_NAME", "documents.db")
 
 
 def get_connection():
-    return sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_NAME, timeout=30)
+    conn.execute("PRAGMA journal_mode=WAL;")
+    conn.execute("PRAGMA busy_timeout=30000;")
+    return conn
 
 
 def create_tables():
@@ -77,6 +80,35 @@ def insert_chunk(chunk, embedding):
     conn.close()
 
 
+def insert_chunks_bulk(chunks, embeddings):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    rows = []
+    for chunk, embedding in zip(chunks, embeddings):
+        rows.append(
+            (
+                chunk["filename"],
+                chunk["page"],
+                chunk["chunk_id"],
+                chunk["content"],
+                pickle.dumps(embedding),
+            )
+        )
+
+    cursor.executemany(
+        """
+        INSERT INTO document_chunks
+        (filename, page, chunk_id, content, embedding)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        rows,
+    )
+
+    conn.commit()
+    conn.close()
+
+
 def fetch_all_chunks():
     conn = get_connection()
     cursor = conn.cursor()
@@ -108,7 +140,7 @@ def document_exists(filename):
     cursor = conn.cursor()
 
     cursor.execute(
-        "SELECT COUNT(*) FROM document_chunks WHERE filename = ?",
+        "SELECT COUNT(*) FROM documents WHERE filename = ?",
         (filename,)
     )
 

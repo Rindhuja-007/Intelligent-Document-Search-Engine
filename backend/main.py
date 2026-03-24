@@ -11,6 +11,7 @@ from backend.auth import (
 )
 
 from database import fetch_all_chunks, create_tables,insert_chunk, document_exists, insert_query
+from database import insert_chunks_bulk
 from search_engine import retrieve_top_chunks_with_scores
 from rag_engine import build_extractive_answer
 import os
@@ -288,19 +289,6 @@ def upload_document(
             detail="Document already uploaded"
         )
 
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    cursor.execute(
-        "INSERT INTO documents (filename, uploaded_by) VALUES (?, ?)",
-        (file.filename, user["username"])
-    )
-
-    conn.commit()
-    conn.close()
-    
-
     # 3️⃣ Extract chunks
     if file.filename.endswith(".pdf"):
         doc_chunks = extract_pdf_chunks(file_path)
@@ -327,9 +315,30 @@ def upload_document(
     # 5️⃣ Create embeddings
     doc_embeddings, _ = embed_chunks(doc_chunks, model=model)
 
-    # 6️⃣ Store chunks
-    for c, e in zip(doc_chunks, doc_embeddings):
-        insert_chunk(c, e)
+    # 6️⃣ Store metadata + chunks
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    conn.execute("PRAGMA busy_timeout=30000;")
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute(
+            "INSERT INTO documents (filename, uploaded_by) VALUES (?, ?)",
+            (file.filename, user["username"])
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise HTTPException(status_code=400, detail="Document already uploaded")
+    except sqlite3.OperationalError:
+        conn.close()
+        raise HTTPException(status_code=503, detail="Database busy. Please retry.")
+
+    conn.close()
+
+    try:
+        insert_chunks_bulk(doc_chunks, doc_embeddings)
+    except sqlite3.OperationalError:
+        raise HTTPException(status_code=503, detail="Database busy. Please retry.")
 
     return {
         "message": "Document uploaded and indexed",
