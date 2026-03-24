@@ -14,6 +14,7 @@ from database import fetch_all_chunks, create_tables,insert_chunk, document_exis
 from search_engine import retrieve_top_chunks_with_scores
 from rag_engine import build_extractive_answer
 import os
+import shutil
 from fastapi import UploadFile, File
 from document_loader import extract_pdf_chunks, extract_docx_chunks
 from preprocessing import preprocess_text
@@ -95,12 +96,10 @@ ensure_admin_user()
 # Load embedding model
 # -----------------------------
 model = None
-chunks = None
-embeddings = None
 
 
-def load_resources():
-    global model, chunks, embeddings
+def load_model():
+    global model
 
     if model is None:
         print("Loading model...")
@@ -108,11 +107,6 @@ def load_resources():
             os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
         )
         print("Model loaded.")
-
-    if chunks is None or embeddings is None:
-        print("Loading DB...")
-        chunks, embeddings = fetch_all_chunks()
-        print("DB loaded.")
 
 # -----------------------------
 # Authentication Dependency
@@ -227,9 +221,11 @@ def login(user: User):
 # -----------------------------
 @app.post("/query")
 def query_docs(data: Query, user=Depends(get_current_user)):
-    load_resources()
+    load_model()
 
     try:
+
+        chunks, embeddings = fetch_all_chunks()
 
         if not chunks:
             return {"error": "No documents indexed"}
@@ -270,13 +266,11 @@ def upload_document(
     file: UploadFile = File(...),
     user = Depends(get_current_user)
 ):
-    global chunks, embeddings
-
     # Only admin can upload
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
 
-    load_resources()
+    load_model()
 
     upload_dir = os.path.join(DATA_DIR, "uploads")
     os.makedirs(upload_dir, exist_ok=True)
@@ -285,7 +279,7 @@ def upload_document(
 
     # 1️⃣ Save file
     with open(file_path, "wb") as f:
-        f.write(file.file.read())
+        shutil.copyfileobj(file.file, f)
 
     # 2️⃣ Check if already indexed
     if document_exists(file.filename):
@@ -319,15 +313,23 @@ def upload_document(
     for c in doc_chunks:
         c["clean_text"] = preprocess_text(c["content"])
 
+    max_chunks_per_upload = int(os.getenv("MAX_CHUNKS_PER_UPLOAD", "150"))
+    if len(doc_chunks) > max_chunks_per_upload:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"Document too large for current plan. "
+                f"Max chunks per upload: {max_chunks_per_upload}. "
+                f"Current chunks: {len(doc_chunks)}"
+            )
+        )
+
     # 5️⃣ Create embeddings
     doc_embeddings, _ = embed_chunks(doc_chunks, model=model)
 
     # 6️⃣ Store chunks
     for c, e in zip(doc_chunks, doc_embeddings):
         insert_chunk(c, e)
-
-    # Refresh in-memory cache so new docs are queryable immediately
-    chunks, embeddings = fetch_all_chunks()
 
     return {
         "message": "Document uploaded and indexed",
