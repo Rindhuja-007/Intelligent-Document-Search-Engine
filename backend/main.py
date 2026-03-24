@@ -16,6 +16,7 @@ from search_engine import retrieve_top_chunks_with_scores
 from rag_engine import build_extractive_answer
 import os
 import shutil
+from threading import Lock
 from fastapi import UploadFile, File
 from document_loader import extract_pdf_chunks, extract_docx_chunks
 from preprocessing import preprocess_text
@@ -97,17 +98,21 @@ ensure_admin_user()
 # Load embedding model
 # -----------------------------
 model = None
+model_lock = Lock()
+upload_lock = Lock()
 
 
 def load_model():
     global model
 
     if model is None:
-        print("Loading model...")
-        model = SentenceTransformer(
-            os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-        )
-        print("Model loaded.")
+        with model_lock:
+            if model is None:
+                print("Loading model...")
+                model = SentenceTransformer(
+                    os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+                )
+                print("Model loaded.")
 
 # -----------------------------
 # Authentication Dependency
@@ -271,6 +276,9 @@ def upload_document(
     if user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
 
+    if not upload_lock.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="Another upload is in progress. Please wait.")
+
     load_model()
 
     upload_dir = os.path.join(DATA_DIR, "uploads")
@@ -392,6 +400,7 @@ def upload_document(
         raise HTTPException(status_code=500, detail="Upload failed. Please retry.")
     finally:
         conn.close()
+        upload_lock.release()
 
 @app.get("/admin/users")
 def list_users(user = Depends(get_current_user)):

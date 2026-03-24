@@ -15,6 +15,7 @@ const loginTime = localStorage.getItem("loginTime")
 const HISTORY_KEY = "ids_search_history"
 
 const DOC_COUNTER_KEY = "ids_document_counter"
+let isUploading = false
 
 if(!token){
 window.location = "index.html"
@@ -146,12 +147,20 @@ list.innerHTML = counters.map(([name, count]) => `
 }
 
 async function uploadFile(){
+if(isUploading) return
 
 const fileInput = document.getElementById("fileInput")
+const uploadButton = document.querySelector(".upload-box .primary-btn")
 
 if(!fileInput.files[0]){
 document.getElementById("uploadStatus").innerText = "Select a file before uploading."
 return
+}
+
+isUploading = true
+if(uploadButton){
+uploadButton.disabled = true
+uploadButton.innerText = "Uploading..."
 }
 
 const formData = new FormData()
@@ -160,6 +169,7 @@ formData.append("file",fileInput.files[0])
 
 document.getElementById("uploadStatus").innerText = "Uploading document..."
 
+try{
 const res = await fetch(API_URL + "/upload",{
 
 method:"POST",
@@ -176,10 +186,20 @@ const data = await res.json()
 
 document.getElementById("uploadStatus").innerText = data.message || data.detail || "Upload finished"
 
+if(res.ok){
 fileInput.value = ""
-
 loadDocuments()
 loadStats()
+}
+}catch{
+document.getElementById("uploadStatus").innerText = "Upload failed. Please retry."
+}finally{
+isUploading = false
+if(uploadButton){
+uploadButton.disabled = false
+uploadButton.innerText = "Upload Document"
+}
+}
 
 }
 
