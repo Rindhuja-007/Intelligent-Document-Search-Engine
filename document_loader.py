@@ -1,5 +1,5 @@
 import os
-import pdfplumber
+import PyPDF2
 import docx
 
 
@@ -20,8 +20,9 @@ def chunk_text(text, chunk_size=500, overlap=50):
 def extract_pdf_chunks(file_path):
     documents = []
 
-    with pdfplumber.open(file_path) as pdf:
-        for page_number, page in enumerate(pdf.pages, start=1):
+    with open(file_path, "rb") as f:
+        reader = PyPDF2.PdfReader(f)
+        for page_number, page in enumerate(reader.pages, start=1):
             text = page.extract_text()
             if not text:
                 continue
