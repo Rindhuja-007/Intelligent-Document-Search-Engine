@@ -151,9 +151,16 @@ if(isUploading) return
 
 const fileInput = document.getElementById("fileInput")
 const uploadButton = document.querySelector(".upload-box .primary-btn")
+const selectedFile = fileInput.files[0]
 
-if(!fileInput.files[0]){
+if(!selectedFile){
 document.getElementById("uploadStatus").innerText = "Select a file before uploading."
+return
+}
+
+const maxUploadMb = 15
+if(selectedFile.size > maxUploadMb * 1024 * 1024){
+document.getElementById("uploadStatus").innerText = `File too large. Please upload a file below ${maxUploadMb} MB.`
 return
 }
 
@@ -165,7 +172,7 @@ uploadButton.innerText = "Uploading..."
 
 const formData = new FormData()
 
-formData.append("file",fileInput.files[0])
+formData.append("file",selectedFile)
 
 document.getElementById("uploadStatus").innerText = "Uploading document..."
 
@@ -182,7 +189,13 @@ body:formData
 
 })
 
-const data = await res.json()
+const raw = await res.text()
+let data = {}
+try{
+data = raw ? JSON.parse(raw) : {}
+}catch{
+data = { detail: raw || "Upload failed" }
+}
 
 document.getElementById("uploadStatus").innerText = data.message || data.detail || "Upload finished"
 
@@ -190,6 +203,8 @@ if(res.ok){
 fileInput.value = ""
 loadDocuments()
 loadStats()
+}else if(!data.message && !data.detail){
+document.getElementById("uploadStatus").innerText = `Upload failed (HTTP ${res.status}).`
 }
 }catch{
 document.getElementById("uploadStatus").innerText = "Upload failed. Please retry."
