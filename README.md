@@ -1,3 +1,12 @@
+---
+title: Intelligent Doc Api
+emoji: 📚
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # Intelligent Document Search
 
 An AI-powered document search and retrieval system that uses Retrieval-Augmented Generation (RAG) to answer questions based on uploaded documents. Built with Streamlit, embeddings, and local LLMs via Ollama.
